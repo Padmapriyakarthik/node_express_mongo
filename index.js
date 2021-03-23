@@ -10,6 +10,7 @@ const mongoClient=mongodb.MongoClient;
 const objectId=mongodb.ObjectID;
 //const dbUrl="mongodb://127.0.0.1:27017";
 const dbUrl=process.env.DB_URL || "mongodb://127.0.0.1:27017";
+const port=process.env.PORT || 4000;
 
 app.get("/student",async (req,res)=>{
 try{
@@ -253,4 +254,4 @@ app.delete("/mentor/:id",async(req,res)=>{
 
 })
 
-app.listen(4000,()=>{console.log("hiiiii....hellloo")});
+app.listen(port,()=>{console.log("port started")});
