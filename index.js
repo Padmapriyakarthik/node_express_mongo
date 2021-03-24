@@ -46,20 +46,23 @@ app.post("/student",async (req,res)=>{
         let message="";
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let data=await db.collection("student").find({}).project({"student_email":1,"_id":0}).toArray();
-        data.map((elem)=>{
+        let data=await db.collection("student").findOne({student_email:req.body.student_email});
+        /*data.map((elem)=>{
             if(elem.student_email==req.body.student_email)
             {
                 user_available=true;
                 message="student already present";
             }
-        });
-        if(!user_available)
+        });*/
+        if(data)
         {
             await db.collection("student").insertOne(req.body);
-            message="student created"
+            res.status(200).json({message:"student created"});
         }
-        res.status(200).json({message});
+        else{
+            res.status(200).json({message:"student already present"});
+        }
+        
         client.close();
     }
     catch(error)
