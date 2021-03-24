@@ -42,25 +42,16 @@ app.get("/mentor",async (req,res)=>{
 
 app.post("/student",async (req,res)=>{
     try{
-        let user_available=false;
-        let message="";
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
         let data=await db.collection("student").findOne({student_email:req.body.student_email});
-        /*data.map((elem)=>{
-            if(elem.student_email==req.body.student_email)
-            {
-                user_available=true;
-                message="student already present";
-            }
-        });*/
-        if(data)
+        if(!data)
         {
             await db.collection("student").insertOne(req.body);
             res.status(200).json({message:"student created"});
         }
         else{
-            res.status(200).json({message:"student already present"});
+            res.status(400).json({message:"student already present"});
         }
         
         client.close();
@@ -74,27 +65,18 @@ app.post("/student",async (req,res)=>{
 app.post("/mentor",async (req,res)=>{
 
     try{
-        let user_available=false;
-        let message="";
+
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let data=await db.collection("mentor").find({}).project({"mentor_email":1,"_id":0}).toArray();
-        for(i=0;i<data.length;i++)
-        {
-            if(data[i].mentor_email==req.body.mentor_email)
-            {
-                user_available=true;
-                message="mentor already present";
-                break;
-            }
-        }        
-        if(!user_available)
+        let data=await db.collection("mentor").findOne({mentor_email:req.body.mentor_email});      
+        if(!data)
         {
             await db.collection("mentor").insertOne(req.body);
-            message="mentor created"
+            res.status(200).json({message:"Mentor Created"});
         }
-           
-            res.status(200).json({message});
+        else{
+            res.status(400).json({message:"Mentor already present"});
+        }
             client.close();
         }
         catch(error)
@@ -107,13 +89,13 @@ app.post("/mentor",async (req,res)=>{
 //API to assign or change Mentor
 app.put("/student/:id",async (req,res)=>{
     try{
-        let message="";
+    
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let student_id=await db.collection("student").find({"_id":objectId(req.params.id)}).toArray();
+        let student_id=await db.collection("student").findOne({"_id":objectId(req.params.id)});
 
-        let mentor_id=await db.collection("mentor").find({"_id":objectId(req.body.mentor_id)}).project({"_id":1}).toArray();
-        if(student_id.length>0)
+        let mentor_id=await db.collection("mentor").findOne({"_id":objectId(req.body.mentor_id)});
+        if(student_id)
         {
             mentor=await db.collection("student").find({"_id":objectId(req.params.id)}).project({"_id":0,"student_mentor_id":1}).toArray();
            if(mentor[0].student_mentor_id)
@@ -123,24 +105,25 @@ app.put("/student/:id",async (req,res)=>{
                 list[0].mentor_studetlist.splice(index,1);
                 await db.collection("mentor").findOneAndUpdate({"_id":objectId(mentor[0].student_mentor_id)},{$set:{"mentor_studetlist":list[0].mentor_studetlist}});
             }
-            if(mentor_id.length>0)
+            if(mentor_id)
             {
                 await db.collection("student").findOneAndUpdate({"_id":objectId(req.params.id)},{$set:{"student_mentor_id":req.body.mentor_id}});
-                message="student assigned with mentor";
+               
 
                 let list=await db.collection("mentor").find({"_id":objectId(req.body.mentor_id)}).project({"mentor_studetlist":1,"_id":0}).toArray();
                 let new_list=[...list[0].mentor_studetlist];
                 new_list.push(objectId(req.params.id));
                 await db.collection("mentor").findOneAndUpdate({"_id":objectId(req.body.mentor_id)},{$set:{"mentor_studetlist":new_list}});
+                
+                res.status(200).json({message:"Student Assigned With Mentor"});
             }
             else{
-                message="Mentor not available";
+                res.status(400).json({message:"Mentor Not Present"});
             }
         }
         else{
-            message="Student not available";
+            res.status(400).json({message:"Student Not Present"});
         }
-        res.status(200).json({message});
         client.close();
     }
     catch(error){
@@ -156,8 +139,8 @@ app.get("/mentor/:id/student-list",async(req,res)=>{
         let list1=[];
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let mentor_id=await db.collection("mentor").find({"_id":objectId(req.params.id)}).toArray();
-        if(mentor_id.length>0)
+        let mentor_id=await db.collection("mentor").findOne({"_id":objectId(req.params.id)});
+        if(mentor_id)
         {  
             let list=await db.collection("mentor").find({"_id":objectId(req.params.id)}).project({"mentor_studetlist":1,"_id":0}).toArray();
            
@@ -167,11 +150,12 @@ app.get("/mentor/:id/student-list",async(req,res)=>{
                 let  l=await db.collection("student").find({"_id":objectId(elem)}).toArray();
                list1.push(l);
             }
+            res.status(200).send(list1);
         }
         else{
-            list1=["no student is assigned"];
+            res.status(400).json({message:"no student is assigned"});
         }
-        res.status(200).send(list1);
+        
         client.close();
     }
     catch(error)
@@ -189,11 +173,10 @@ app.put("/mentor/:id/assign-student",async(req,res)=>{
         let message="";
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let mentor_id=await db.collection("mentor").find({"_id":objectId(req.params.id)}).toArray();
-        if(mentor_id.length>0)
+        let mentor_id=await db.collection("mentor").findOne({"_id":objectId(req.params.id)})
+        if(mentor_id)
         {
                 let elem=[...req.body.student_id];
-                console.log(elem);
                 for(i=0;i<elem.length;i++)
                 {
                 mentor=await db.collection("student").find({"_id":objectId(elem[i])}).project({"_id":0,"student_mentor_id":1}).toArray();
@@ -206,17 +189,18 @@ app.put("/mentor/:id/assign-student",async(req,res)=>{
                 let new_list=[...list[0].mentor_studetlist];
                 new_list.push(objectId(elem[i]));
                 await db.collection("mentor").findOneAndUpdate({"_id":objectId(req.params.id)},{$set:{"mentor_studetlist":new_list}});
-                message="mentor Assigned with student";
+                
+                res.status(200).json({message:"Mentor Assigned with Student"});
                 }
                
             }
-            message="mentor Assigned with student";
+            
         }
         else{
-            message="mentor not available";
+            res.status(200).json({message:"Mentor not Present"});
         }
         client.close();
-        res.status(200).send(message);
+        
     }
     catch(error){
         console.log(error);
@@ -229,8 +213,8 @@ app.delete("/mentor/:id",async(req,res)=>{
         let message="";
         let client=await mongoClient.connect(dbUrl);
         let db=client.db("Student_Mentor");
-        let mentor_id=await db.collection("mentor").find({"_id":objectId(req.params.id)}).toArray();
-        if(mentor_id.length>0)
+        let mentor_id=await db.collection("mentor").findOne({"_id":objectId(req.params.id)});
+        if(mentor_id)
         {
             let std_list=await db.collection("mentor").find({"_id":objectId(req.params.id)}).project({"mentor_studetlist":1,"_id":0}).toArray();
             let list=[...std_list[0].mentor_studetlist];
@@ -242,14 +226,14 @@ app.delete("/mentor/:id",async(req,res)=>{
                 }
             }
             await db.collection("mentor").deleteOne({"_id":objectId(req.params.id)});
-            message="Mentor deleted";
+            res.status(200).json({message:"Mentor Deleted"});
         }
         else{
 
-            message="Mentor not available";
+            res.status(200).send({message:"Mentor Not Present"});
         }
         client.close();
-        res.status(200).send(message);
+        
     }
     catch(error){
         console.log(error);
